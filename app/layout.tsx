@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SocMed Brief Builder',
   description: 'Build your social media content plan in minutes',
+  icons: { icon: 'data:,' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

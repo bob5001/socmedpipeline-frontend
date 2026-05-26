@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { anthropic } from '@/lib/anthropic';
+import { chat } from '@/lib/llm';
 import { EXTRACTION_PROMPT } from '@/lib/prompts/extraction';
 import { Message, Brief } from '@/lib/types';
 import { writeFileSync } from 'fs';
@@ -12,18 +12,7 @@ export async function POST(req: NextRequest) {
     .map(m => `${m.role === 'user' ? 'Business owner' : 'Assistant'}: ${m.content}`)
     .join('\n\n');
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2048,
-    messages: [
-      {
-        role: 'user',
-        content: `${EXTRACTION_PROMPT}\n\nCONVERSATION:\n${conversationText}`,
-      },
-    ],
-  });
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+  const text = await chat({ messages: [{ role: 'user', content: `${EXTRACTION_PROMPT}\n\nCONVERSATION:\n${conversationText}` }], maxTokens: 2048 });
 
   let briefData: Omit<Brief, 'id' | 'created_at'>;
   try {
