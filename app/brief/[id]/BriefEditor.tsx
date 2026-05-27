@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Brief, GeneratedPost } from '@/lib/types';
 import { BriefCard } from '@/components/BriefCard';
 import { PostCard } from '@/components/PostCard';
+import { ImageUploader } from '@/components/ImageUploader';
 
 interface Props {
   initialBrief: Brief;
@@ -78,6 +79,13 @@ export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
           >
             Edit brief
           </button>
+        </div>
+      )}
+
+      {/* Image uploader — visible once brief is saved */}
+      {(phase === 'saved' || phase === 'posts') && (
+        <div className="bg-zinc-800/40 border border-zinc-700 rounded-2xl p-5">
+          <ImageUploader briefId={briefId} />
         </div>
       )}
 

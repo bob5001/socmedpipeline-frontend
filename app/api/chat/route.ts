@@ -43,6 +43,12 @@ Note: The website could not be loaded. Do NOT infer or guess anything about the 
     }
   }
 
-  const text = await chat({ system: systemPrompt, messages, maxTokens: 512 });
+  // Ollama requires at least one user turn. When the conversation is empty
+  // (opening message trigger), inject a silent prompt so the model responds.
+  const messagesForLlm = messages.length === 0
+    ? [{ role: 'user' as const, content: 'begin' }]
+    : messages;
+
+  const text = await chat({ system: systemPrompt, messages: messagesForLlm, maxTokens: 512 });
   return NextResponse.json({ message: text });
 }
