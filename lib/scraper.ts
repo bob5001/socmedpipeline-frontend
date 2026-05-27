@@ -91,34 +91,26 @@ async function scrapePage(
 
   const title = await page.title();
 
-  // Collect nav links and all links BEFORE stripping anything
-  const { navLinks, allLinks } = await page.evaluate(
-    ({ origin, navSelectors }: { origin: string; navSelectors: string[] }) => {
-      const extractLinks = (els: Element[]) => els
-        .map((a) => ({
-          href: (a as HTMLAnchorElement).href ?? '',
-          text: (a.textContent ?? '').replace(/\s+/g, ' ').trim(),
-        }))
-        .filter(({ href }) => {
-          try {
-            const u = new URL(href);
-            return u.origin === origin && u.pathname !== '/' && u.pathname !== '';
-          } catch { return false; }
-        });
+  // Collect nav links and all links BEFORE stripping anything.
+  // Use $$eval (selector + simple inline callback) to avoid esbuild injecting
+  // __name helpers that don't exist in the browser context.
+  const navSelector = NAV_SELECTORS.map(s => `${s}[href], ${s} a[href]`).join(', ');
 
-      // Nav links: anchors inside nav/header elements
-      const navEls = navSelectors.flatMap(sel =>
-        Array.from(document.querySelectorAll<HTMLAnchorElement>(`${sel}[href], ${sel} a[href]`))
-      );
-      const navLinks = extractLinks([...new Set(navEls)]);
+  const navLinks = await page.$$eval(navSelector, (anchors, origin) =>
+    (anchors as HTMLAnchorElement[])
+      .map(a => ({ href: a.href ?? '', text: (a.textContent ?? '').replace(/\s+/g, ' ').trim() }))
+      .filter(({ href }) => {
+        try { const u = new URL(href); return u.origin === origin && u.pathname.length > 1; }
+        catch { return false; }
+      }), url.origin);
 
-      // All links on the page
-      const allLinks = extractLinks(Array.from(document.querySelectorAll('a[href]')));
-
-      return { navLinks, allLinks };
-    },
-    { origin: url.origin, navSelectors: NAV_SELECTORS }
-  );
+  const allLinks = await page.$$eval('a[href]', (anchors, origin) =>
+    (anchors as HTMLAnchorElement[])
+      .map(a => ({ href: a.href ?? '', text: (a.textContent ?? '').replace(/\s+/g, ' ').trim() }))
+      .filter(({ href }) => {
+        try { const u = new URL(href); return u.origin === origin && u.pathname.length > 1; }
+        catch { return false; }
+      }), url.origin);
 
   // Strip boilerplate then extract content
   await page.evaluate((selectors: string[]) => {
