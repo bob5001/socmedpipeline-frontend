@@ -1,7 +1,8 @@
 import { chromium } from 'playwright';
 
 const MAX_CHARS_PER_PAGE = 2000;
-const MAX_EXTRA_PAGES = 4;
+const MAX_NAV_PAGES = 6;   // all nav links, up to this many
+const MAX_SCORED_PAGES = 2; // non-nav scored pages to backfill remaining slots
 const NAVIGATION_TIMEOUT = 15000;
 
 const CONTENT_SELECTORS = ['h1', 'h2', 'h3', 'p', 'li', 'blockquote'];
@@ -55,10 +56,21 @@ function scoreLink(href: string, linkText: string): { score: number; label: stri
   return best;
 }
 
+// Nav selectors — elements the site owner put at the top for a reason
+const NAV_SELECTORS = [
+  'nav', 'header nav', '[role="navigation"]',
+  'header a[href]', '.navbar a[href]', '.nav a[href]', '#nav a[href]', '#menu a[href]',
+];
+
 async function scrapePage(
   url: URL,
   browser: Browser
-): Promise<{ title: string; text: string; links: Array<{ href: string; text: string }> }> {
+): Promise<{
+  title: string;
+  text: string;
+  navLinks: Array<{ href: string; text: string }>;
+  allLinks: Array<{ href: string; text: string }>;
+}> {
   const context = await browser.newContext({
     userAgent:
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -79,22 +91,34 @@ async function scrapePage(
 
   const title = await page.title();
 
-  // Collect internal links before stripping nav
-  const links: Array<{ href: string; text: string }> = await page.evaluate((origin: string) => {
-    return Array.from(document.querySelectorAll('a[href]'))
-      .map((a) => ({
-        href: (a as HTMLAnchorElement).href,
-        text: (a.textContent ?? '').replace(/\s+/g, ' ').trim(),
-      }))
-      .filter(({ href }) => {
-        try {
-          const u = new URL(href);
-          return u.origin === origin && u.pathname !== '/' && u.pathname !== '';
-        } catch {
-          return false;
-        }
-      });
-  }, url.origin);
+  // Collect nav links and all links BEFORE stripping anything
+  const { navLinks, allLinks } = await page.evaluate(
+    ({ origin, navSelectors }: { origin: string; navSelectors: string[] }) => {
+      const extractLinks = (els: Element[]) => els
+        .map((a) => ({
+          href: (a as HTMLAnchorElement).href ?? '',
+          text: (a.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        }))
+        .filter(({ href }) => {
+          try {
+            const u = new URL(href);
+            return u.origin === origin && u.pathname !== '/' && u.pathname !== '';
+          } catch { return false; }
+        });
+
+      // Nav links: anchors inside nav/header elements
+      const navEls = navSelectors.flatMap(sel =>
+        Array.from(document.querySelectorAll<HTMLAnchorElement>(`${sel}[href], ${sel} a[href]`))
+      );
+      const navLinks = extractLinks([...new Set(navEls)]);
+
+      // All links on the page
+      const allLinks = extractLinks(Array.from(document.querySelectorAll('a[href]')));
+
+      return { navLinks, allLinks };
+    },
+    { origin: url.origin, navSelectors: NAV_SELECTORS }
+  );
 
   // Strip boilerplate then extract content
   await page.evaluate((selectors: string[]) => {
@@ -120,10 +144,10 @@ async function scrapePage(
 
   await context.close();
 
-  return { title, text: rawTexts.join('\n').slice(0, MAX_CHARS_PER_PAGE), links };
+  return { title, text: rawTexts.join('\n').slice(0, MAX_CHARS_PER_PAGE), navLinks, allLinks };
 }
 
-async function attemptScrape(url: URL, browser: Browser): Promise<ReturnType<typeof scrapePage>> {
+async function attemptScrape(url: URL, browser: Browser): Promise<Awaited<ReturnType<typeof scrapePage>>> {
   try {
     return await scrapePage(url, browser);
   } catch (err) {
@@ -155,31 +179,46 @@ export async function scrapeWebsite(rawUrl: string): Promise<ScrapeResult> {
   try {
     browser = await chromium.launch({ channel: 'chrome', headless: true });
 
-    // Scrape homepage and collect internal links
+    // Scrape homepage and collect nav + all links
     const home = await attemptScrape(url, browser);
 
-    // Score and deduplicate candidate pages
     const seen = new Set<string>([url.pathname]);
-    const candidates: Array<{ url: URL; score: number; label: string }> = [];
 
-    for (const { href, text } of home.links) {
+    function dedupeUrl(href: string): URL | null {
       let linkUrl: URL;
-      try { linkUrl = new URL(href); } catch { continue; }
-
+      try { linkUrl = new URL(href); } catch { return null; }
       const pathname = linkUrl.pathname.replace(/\/$/, '') || '/';
-      if (seen.has(pathname)) continue;
+      if (seen.has(pathname)) return null;
       seen.add(pathname);
-
-      const match = scoreLink(pathname, text);
-      if (match) {
-        candidates.push({ url: linkUrl, score: match.score, label: match.label });
-      }
+      return linkUrl;
     }
 
-    // Take the highest-scoring pages up to the cap
-    const toScrape = candidates
+    // Tier 1: nav links — follow unconditionally (site owner put them there)
+    const navPages: Array<{ url: URL; label: string }> = [];
+    for (const { href, text } of home.navLinks) {
+      const linkUrl = dedupeUrl(href);
+      if (!linkUrl) continue;
+      // Use link text as label, fall back to pathname segment
+      const label = text || linkUrl.pathname.split('/').filter(Boolean).pop() || 'Page';
+      navPages.push({ url: linkUrl, label });
+      if (navPages.length >= MAX_NAV_PAGES) break;
+    }
+
+    // Tier 2: scored non-nav links to backfill remaining slots
+    const scoredPages: Array<{ url: URL; score: number; label: string }> = [];
+    for (const { href, text } of home.allLinks) {
+      const linkUrl = dedupeUrl(href);
+      if (!linkUrl) continue;
+      const match = scoreLink(linkUrl.pathname, text);
+      if (match) scoredPages.push({ url: linkUrl, score: match.score, label: match.label });
+    }
+
+    const backfillSlots = Math.max(0, MAX_NAV_PAGES - navPages.length);
+    const backfill = scoredPages
       .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_EXTRA_PAGES);
+      .slice(0, Math.min(backfillSlots, MAX_SCORED_PAGES));
+
+    const toScrape = [...navPages, ...backfill];
 
     const ERROR_PAGE_SIGNALS = [
       "couldn't find the page",
