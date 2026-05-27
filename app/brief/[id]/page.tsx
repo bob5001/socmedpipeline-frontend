@@ -29,7 +29,11 @@ export default async function BriefPage({ params }: Props) {
             Brief saved to <span className="font-mono text-zinc-400">briefs/{id}.json</span>
           </p>
         </div>
-        <BriefEditor initialBrief={brief} briefId={id} />
+        <BriefEditor
+          initialBrief={brief}
+          briefId={id}
+          briefPath={join(process.cwd(), 'briefs', `${id}.json`)}
+        />
       </div>
     </div>
   );

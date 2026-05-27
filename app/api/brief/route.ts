@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chat } from '@/lib/llm';
 import { EXTRACTION_PROMPT } from '@/lib/prompts/extraction';
 import { Message, Brief } from '@/lib/types';
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 export async function POST(req: NextRequest) {
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
   };
 
   const briefsDir = join(process.cwd(), 'briefs');
+  mkdirSync(briefsDir, { recursive: true });
   writeFileSync(join(briefsDir, `${id}.json`), JSON.stringify(brief, null, 2));
 
   return NextResponse.json({ id, brief });

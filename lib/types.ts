@@ -3,6 +3,13 @@ export interface Message {
   content: string;
 }
 
+export interface GeneratedPost {
+  platform: string;
+  caption: string;
+  hashtags: string[];
+  image_prompt: string;
+}
+
 export interface Brief {
   id: string;
   created_at: string;

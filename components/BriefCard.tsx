@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { Brief } from '@/lib/types';
 
 interface Props {
@@ -70,14 +71,16 @@ function ArrayInput({
   value: string[];
   onChange: (v: string[]) => void;
 }) {
-  const display = (value || []).join(', ');
+  const [text, setText] = useState((value || []).join(', '));
+
   return (
     <div>
       <label className="block text-xs text-zinc-400 mb-1">{label} (comma-separated)</label>
       <input
         type="text"
-        value={display}
-        onChange={e => onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onBlur={() => onChange(text.split(',').map(s => s.trim()).filter(Boolean))}
         className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 outline-none border border-zinc-700 focus:border-indigo-500 transition-colors"
       />
     </div>
