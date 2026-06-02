@@ -22,7 +22,16 @@ export async function POST(req: NextRequest) {
     );
 
     if (url && !alreadyScraped) {
-      const result = await scrapeWebsite(url);
+      const SCRAPE_TIMEOUT_MS = 25000;
+      const result = await Promise.race([
+        scrapeWebsite(url),
+        new Promise<{ content: string; title: string; url: string; error: string }>(resolve =>
+          setTimeout(
+            () => resolve({ content: '', title: '', url, error: 'timeout' }),
+            SCRAPE_TIMEOUT_MS
+          )
+        ),
+      ]);
 
       if (result.content && !result.error) {
         // Inject scraped content into the system prompt as labeled read-only data.

@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { Message } from '@/lib/types';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
+import { extractUrl } from '@/lib/scraper';
 
 export default function OnboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isScraping, setIsScraping] = useState(false);
   const [briefLoading, setBriefLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -34,6 +36,12 @@ export default function OnboardPage() {
     if (userText) setMessages(newMessages);
     setLoading(true);
 
+    const alreadyScraped = newMessages.some(
+      m => m.role === 'user' && m.content.includes('[WEBSITE_CONTENT]')
+    );
+    const pendingUrl = userText && extractUrl(userText);
+    if (pendingUrl && !alreadyScraped) setIsScraping(true);
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -49,6 +57,7 @@ export default function OnboardPage() {
       const updated: Message[] = [...newMessages, { role: 'assistant', content: assistantText }];
       setMessages(updated);
       setLoading(false);
+      setIsScraping(false);
 
       if (briefReady) {
         setBriefLoading(true);
@@ -62,6 +71,7 @@ export default function OnboardPage() {
       }
     } catch (err) {
       setLoading(false);
+      setIsScraping(false);
       console.error(err);
     }
   }
@@ -97,11 +107,15 @@ export default function OnboardPage() {
         {(loading || briefLoading) && (
           <div className="flex justify-start mb-3">
             <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
-              <span className="flex gap-1">
-                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" />
-              </span>
+              {isScraping ? (
+                <span className="text-zinc-400 text-sm">Checking your site…</span>
+              ) : (
+                <span className="flex gap-1">
+                  <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" />
+                </span>
+              )}
             </div>
           </div>
         )}
