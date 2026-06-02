@@ -11,7 +11,7 @@ interface Props {
   briefPath: string;
 }
 
-type Phase = 'editing' | 'saved' | 'generating' | 'posts';
+type Phase = 'editing' | 'saved' | 'generating' | 'posts' | 'launching' | 'launched';
 
 export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
   const [brief, setBrief] = useState<Brief>(initialBrief);
@@ -57,6 +57,26 @@ export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
 
   function updatePost(index: number, updated: GeneratedPost) {
     setPosts(prev => prev.map((p, i) => (i === index ? updated : p)));
+  }
+
+  async function handleLaunchPipeline() {
+    setError(null);
+    setPhase('launching');
+    try {
+      const res = await fetch(`/api/brief/${briefId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ posts }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Launch failed: ${res.status}`);
+      }
+      setPhase('launched');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Launch failed');
+      setPhase('posts');
+    }
   }
 
   return (
@@ -136,13 +156,26 @@ export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
             <PostCard key={i} post={post} index={i} onChange={updated => updatePost(i, updated)} />
           ))}
 
-          <button
-            disabled
-            className="w-full bg-zinc-700 opacity-40 text-white font-medium py-3 rounded-2xl text-sm cursor-not-allowed"
-            title="Coming soon"
-          >
-            Generate images
-          </button>
+          {phase === 'posts' && (
+            <button
+              onClick={handleLaunchPipeline}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-2xl text-sm transition-colors"
+            >
+              Generate images
+            </button>
+          )}
+
+          {phase === 'launching' && (
+            <div className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl py-3 text-center">
+              <span className="text-zinc-400 text-sm">Launching pipeline…</span>
+            </div>
+          )}
+
+          {phase === 'launched' && (
+            <div className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl py-3 text-center">
+              <span className="text-zinc-400 text-sm">Pipeline running — images generating in the background</span>
+            </div>
+          )}
         </div>
       )}
     </div>

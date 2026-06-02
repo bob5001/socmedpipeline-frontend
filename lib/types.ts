@@ -5,9 +5,11 @@ export interface Message {
 
 export interface GeneratedPost {
   platform: string;
+  content_pillar: string;
   caption: string;
   hashtags: string[];
   image_prompt: string;
+  overlay_text: string;
 }
 
 export interface Brief {
