@@ -24,6 +24,12 @@ export default async function BriefPage({ params }: Props) {
     <div className="min-h-screen bg-zinc-900 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
+          <a
+            href="/"
+            className="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-300 text-xs mb-4 transition-colors"
+          >
+            ← Back to chat
+          </a>
           <h1 className="text-xl font-semibold text-white mb-1">Your Social Media Brief</h1>
           <p className="text-zinc-500 text-xs">
             Brief saved to <span className="font-mono text-zinc-400">briefs/{id}.json</span>

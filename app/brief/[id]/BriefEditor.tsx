@@ -59,6 +59,16 @@ export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
     setPosts(prev => prev.map((p, i) => (i === index ? updated : p)));
   }
 
+  function handleDownload() {
+    const blob = new Blob([JSON.stringify(posts, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${briefId}-posts.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleLaunchPipeline() {
     setError(null);
     setPhase('launching');
@@ -123,12 +133,25 @@ export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
           </button>
         )}
 
+        {phase === 'saved' && posts.length > 0 && (
+          <button
+            onClick={() => setPhase('posts')}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-2xl text-sm transition-colors"
+          >
+            Go to posts
+          </button>
+        )}
+
         {phase === 'saved' && (
           <button
             onClick={handleGenerate}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-2xl text-sm transition-colors"
+            className={`w-full font-medium py-3 rounded-2xl text-sm transition-colors ${
+              posts.length > 0
+                ? 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-300'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+            }`}
           >
-            Generate posts
+            {posts.length > 0 ? 'Generate new posts' : 'Generate posts'}
           </button>
         )}
 
@@ -139,17 +162,25 @@ export function BriefEditor({ initialBrief, briefId, briefPath }: Props) {
         )}
       </div>
 
-      {/* Post cards */}
-      {phase === 'posts' && (
+      {/* Post cards — visible in posts, launching, and launched phases */}
+      {['posts', 'launching', 'launched'].includes(phase) && (
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between">
             <h2 className="text-white font-medium">Your posts</h2>
-            <button
-              onClick={handleGenerate}
-              className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
-            >
-              Regenerate
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownload}
+                className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
+              >
+                Download
+              </button>
+              <button
+                onClick={handleGenerate}
+                className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
+              >
+                Regenerate
+              </button>
+            </div>
           </div>
 
           {posts.map((post, i) => (
