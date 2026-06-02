@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Message } from '@/lib/types';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
-import { extractUrl } from '@/lib/scraper';
+import { extractUrl } from '@/lib/utils';
 
 export default function OnboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
