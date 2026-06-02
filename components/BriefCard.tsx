@@ -137,16 +137,10 @@ export function BriefCard({ brief, onChange }: Props) {
       </FieldGroup>
 
       <FieldGroup title="Voice">
-        <SelectInput
+        <TextInput
           label="Brand Voice"
           value={brief.brand_voice}
-          options={[
-            { value: 'casual', label: 'Casual' },
-            { value: 'professional', label: 'Professional' },
-            { value: 'warm', label: 'Warm' },
-            { value: 'edgy', label: 'Edgy' },
-          ]}
-          onChange={v => set('brand_voice', v as Brief['brand_voice'])}
+          onChange={v => set('brand_voice', v)}
         />
         <TextArea label="Tone Notes" value={brief.tone_notes} onChange={v => set('tone_notes', v)} />
         <ArrayInput label="Avoid Topics" value={brief.avoid_topics} onChange={v => set('avoid_topics', v)} />

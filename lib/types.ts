@@ -23,7 +23,7 @@ export interface Brief {
   customer_pain_point: string;
   discovery_channels: string;
   differentiator: string;
-  brand_voice: 'casual' | 'professional' | 'warm' | 'edgy';
+  brand_voice: string;
   tone_notes: string;
   platforms: string[];
   posting_frequency: string;
