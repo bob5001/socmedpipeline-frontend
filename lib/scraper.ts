@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const MAX_CHARS_PER_PAGE = 2000;
+const MAX_CHARS_PER_PAGE = 3000;
 const MAX_NAV_PAGES = 6;   // all nav links, up to this many
 const MAX_SCORED_PAGES = 2; // non-nav scored pages to backfill remaining slots
 const NAVIGATION_TIMEOUT = 15000;
@@ -112,7 +112,24 @@ async function scrapePage(
         catch { return false; }
       }), url.origin);
 
-  // Strip boilerplate then extract content
+  // Extract key identity signals BEFORE stripping — h1/h2 inside <header> would
+  // otherwise be removed before the content pass runs.
+  const identitySignals: string[] = await page.evaluate(() => {
+    const seen = new Set<string>();
+    const results: string[] = [];
+    document.querySelectorAll('h1, h2').forEach((el) => {
+      const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (text.length > 3 && !seen.has(text)) { seen.add(text); results.push(text); }
+    });
+    // Logo / hero images often carry the business name in alt text
+    document.querySelectorAll('img[alt]').forEach((el) => {
+      const alt = ((el as HTMLImageElement).alt ?? '').replace(/\s+/g, ' ').trim();
+      if (alt.length > 5 && !seen.has(alt)) { seen.add(alt); results.push(`[image: ${alt}]`); }
+    });
+    return results;
+  });
+
+  // Strip boilerplate then extract remaining content
   await page.evaluate((selectors: string[]) => {
     selectors.forEach((sel) =>
       document.querySelectorAll(sel).forEach((el) => el.remove())
@@ -136,7 +153,12 @@ async function scrapePage(
 
   await context.close();
 
-  return { title, text: rawTexts.join('\n').slice(0, MAX_CHARS_PER_PAGE), navLinks, allLinks };
+  const allText = [
+    ...(identitySignals.length ? [`[Key headings & images]\n${identitySignals.join('\n')}`, ''] : []),
+    ...rawTexts,
+  ].join('\n').slice(0, MAX_CHARS_PER_PAGE);
+
+  return { title, text: allText, navLinks, allLinks };
 }
 
 async function attemptScrape(url: URL, browser: Browser): Promise<Awaited<ReturnType<typeof scrapePage>>> {
