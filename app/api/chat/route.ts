@@ -7,8 +7,12 @@ import { scrapeWebsite, extractUrl } from '@/lib/scraper';
 export async function POST(req: NextRequest) {
   const { messages }: { messages: Message[] } = await req.json();
 
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
   // Check the latest user message for a URL we haven't already scraped
-  let systemPrompt = INTERVIEW_SYSTEM_PROMPT;
+  let systemPrompt = `Today's date is ${currentDate}.\n\n${INTERVIEW_SYSTEM_PROMPT}`;
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
 
   if (lastUserMessage) {
