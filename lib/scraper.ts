@@ -117,15 +117,27 @@ async function scrapePage(
   const identitySignals: string[] = await page.evaluate(() => {
     const seen = new Set<string>();
     const results: string[] = [];
-    document.querySelectorAll('h1, h2').forEach((el) => {
+
+    // Meta description — highest-signal, explicitly written to describe the business
+    const metaDesc = document.querySelector('meta[name="description"]')?.getAttribute('content')?.trim();
+    if (metaDesc && metaDesc.length > 5) results.push(`[meta description: ${metaDesc}]`);
+
+    // OG title / description — often more descriptive than the page title
+    const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim();
+    if (ogTitle && ogTitle.length > 3) results.push(`[og:title: ${ogTitle}]`);
+
+    // All headings before anything is stripped
+    document.querySelectorAll('h1, h2, h3').forEach((el) => {
       const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
       if (text.length > 3 && !seen.has(text)) { seen.add(text); results.push(text); }
     });
+
     // Logo / hero images often carry the business name in alt text
     document.querySelectorAll('img[alt]').forEach((el) => {
       const alt = ((el as HTMLImageElement).alt ?? '').replace(/\s+/g, ' ').trim();
       if (alt.length > 5 && !seen.has(alt)) { seen.add(alt); results.push(`[image: ${alt}]`); }
     });
+
     return results;
   });
 

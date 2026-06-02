@@ -47,12 +47,12 @@ ${result.content}
 [END WEBSITE_CONTENT]
 ---
 
-Before using this content, determine the business type carefully using this process:
-1. Ignore the business name and URL — they are often abbreviated, branded, or misleading.
-2. Read the actual service descriptions, page headings, and body copy for industry-specific terminology (e.g. "lease agreement", "annual meeting", "roof inspection", "litigation support", "catering menu").
-3. Note who the content speaks to — homeowners, corporate clients, patients, students, etc.
-4. Cross-reference the homepage text with any Services or About sections scraped.
-5. If after reading the full content you are still genuinely unsure what this business does, ask the user directly — do NOT guess based on the name or URL.
+Before using this content, determine the business type carefully:
+1. Start with the meta description and og:title if present — these are written specifically to describe the business and are the most reliable signal.
+2. Read ALL headings and body copy for industry-specific terminology. Do not skip this step.
+3. The domain name and URL abbreviations are UNRELIABLE — do not use them to infer the industry. A domain like "intlmtg.com" could mean anything; the page content is what matters.
+4. Note who the content speaks to — homeowners, corporate clients, patients, riders, students, etc.
+5. If after reading the full content you are still genuinely unsure what this business does, ask the user directly — never guess from the URL.
 
 Once you are confident about the business type, use the content to pre-fill what you already know (name, location, what they do, tone). Skip questions you can answer from it. Only ask about gaps: audience pain points, differentiator in their own words, platform preferences, posting goals, and upcoming hooks.`;
       } else if (result.error) {
