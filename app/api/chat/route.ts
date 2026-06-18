@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chat } from '@/lib/llm';
 import { INTERVIEW_SYSTEM_PROMPT } from '@/lib/prompts/interview-system';
 import { Message } from '@/lib/types';
-import { scrapeWebsite, extractUrl } from '@/lib/scraper';
+import { extractUrl } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
   const { messages }: { messages: Message[] } = await req.json();
@@ -23,15 +23,25 @@ export async function POST(req: NextRequest) {
 
     if (url && !alreadyScraped) {
       const SCRAPE_TIMEOUT_MS = 25000;
-      const result = await Promise.race([
-        scrapeWebsite(url),
-        new Promise<{ content: string; title: string; url: string; error: string }>(resolve =>
-          setTimeout(
-            () => resolve({ content: '', title: '', url, error: 'timeout' }),
-            SCRAPE_TIMEOUT_MS
-          )
-        ),
-      ]);
+      // Dynamic import so a missing playwright binary (e.g. Vercel serverless) doesn't
+      // crash the function at module load — scraping is skipped, chat still works.
+      let result: { content: string; title: string; url: string; error?: string } = {
+        content: '', title: '', url, error: 'scraper unavailable',
+      };
+      try {
+        const { scrapeWebsite } = await import('@/lib/scraper');
+        result = await Promise.race([
+          scrapeWebsite(url),
+          new Promise<{ content: string; title: string; url: string; error: string }>(resolve =>
+            setTimeout(
+              () => resolve({ content: '', title: '', url, error: 'timeout' }),
+              SCRAPE_TIMEOUT_MS
+            )
+          ),
+        ]);
+      } catch {
+        // Playwright unavailable — fall through to error handling below
+      }
 
       if (result.content && !result.error) {
         // Inject scraped content into the system prompt as labeled read-only data.
